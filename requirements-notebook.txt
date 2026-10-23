@@ -1,0 +1,2 @@
+# Notebook-only probabilistic model dependency; install in Kaggle if missing.
+pgmpy==0.1.24

@@ -1,0 +1,26 @@
+services:
+  api:
+    build: .
+    container_name: fraudguard-api
+    ports:
+      - "8000:8000"
+    environment:
+      FRAUDGUARD_ARTIFACTS_DIR: /app/artifacts
+      FRAUDGUARD_ENV: ${FRAUDGUARD_ENV:-production}
+      FRAUDGUARD_API_KEY: ${FRAUDGUARD_API_KEY:?Set FRAUDGUARD_API_KEY in .env}
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: fraudguard-frontend
+    ports:
+      - "8501:8501"
+    environment:
+      FRAUDGUARD_API_URL: http://api:8000
+      FRAUDGUARD_API_KEY: ${FRAUDGUARD_API_KEY:?Set FRAUDGUARD_API_KEY in .env}
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped

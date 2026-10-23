@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+.venv/
+.env
+artifacts/*
+!artifacts/.gitkeep
+ieee-fraud-detection/*.csv
+*.log
+.ipynb_checkpoints/
