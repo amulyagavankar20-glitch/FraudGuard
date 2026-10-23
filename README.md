@@ -1,127 +1,107 @@
-# FraudGuard
+# FraudGuard — Probabilistic Fraud Detection
 
-**A coursework-aligned fraud detection research prototype** using IEEE-CIS transactions to study probabilistic reasoning, Bayesian Networks, Gaussian Mixture Models (GMM), Expectation-Maximization (EM), and strong supervised baselines.
+**Coursework focus: Intelligent Systems II, Topic 1 — Uncertain Knowledge and Reasoning**
 
-> [!IMPORTANT]
-> The canonical training pipeline is [`fraudguard_training.ipynb`](fraudguard_training.ipynb). Training scripts from the previous parallel pipeline were removed to avoid duplicated and inconsistent results. The local IEEE-CIS files are kept for permitted local execution; do not redistribute them.
+FraudGuard studies how a system can reason about uncertain transaction evidence. The main learning path is:
 
-## What it does
+1. **Gaussian Naive Bayes baseline** — use Bayes' rule to estimate fraud probability under a conditional-independence assumption.
+2. **Discrete Bayesian Network** — represent selected dependencies with a directed acyclic graph, estimate CPDs, and infer `P(Fraud = 1 | evidence)` using Variable Elimination.
+3. **LightGBM benchmark (secondary)** — compare predictive performance; this is not the conceptual focus.
+4. **GMM + EM (optional extension)** — model legitimate transactions and use negative log-likelihood as an anomaly score.
 
-- Joins IEEE-CIS transaction and identity tables on `TransactionID`.
-- Uses a chronological split based on `TransactionDT`.
-- Benchmarks LightGBM and Gaussian Naive Bayes.
-- Evaluates a discrete Bayesian Network with missing evidence marginalized at inference.
-- Fits a Gaussian Mixture Model using EM on legitimate transactions and uses negative log-likelihood as an anomaly score.
-- Tests performance under controlled masking of identity/contact fields.
-- Exports models, metrics, and metadata for reproducibility.
-- Provides a FastAPI endpoint for the exported LightGBM model.
-- Provides a lightweight Streamlit dashboard for interactive scoring.
+## What is implemented
 
-## Workflow
+- IEEE-CIS transaction and identity tables are joined on `TransactionID`.
+- Data is sorted by `TransactionDT` and split chronologically (80% train, 20% validation).
+- The Bayesian Network uses a manually specified, documented graph. It is **not** currently a structure-learning experiment.
+- Numeric BN features are discretized using training-only quantile boundaries.
+- Missing BN feature values are represented as explicit states; the inference step also handles missing evidence.
+- CPDs are estimated with a BDeu prior (equivalent sample size 10).
+- Exact BN inference is evaluated on a reproducible validation sample of up to 3,000 rows because row-wise inference is expensive.
+- LightGBM is retained as a performance benchmark; the current API serves LightGBM only.
+- The notebook exports models, metrics and metadata.
 
-```mermaid
-flowchart TD
-    D[(IEEE-CIS Kaggle dataset)] --> J[Canonical Jupyter notebook]
-    J --> S[Chronological split]
-    S --> L[LightGBM]
-    S --> N[Gaussian Naive Bayes]
-    S --> B[Bayesian Network]
-    S --> G[GMM + EM]
-    L --> E[Evaluation and missingness stress]
-    N --> E
-    B --> E
-    G --> E
-    E --> A[Export artifacts and reports]
-    A --> API[FastAPI scoring service]
-```
+## Syllabus mapping
 
-## Repository structure
+| Topic 1 concept | Project component |
+|---|---|
+| Quantifying uncertainty | Probability scores for fraud |
+| Bayes' rule / Naive Bayes | GaussianNB baseline |
+| Bayesian Network semantics | Directed graph and CPDs |
+| Inference in Bayesian Networks | Variable Elimination |
+| Graphical models / GMM / EM | Optional GMM anomaly baseline |
+
+## Bayesian Network used in the notebook
+
+The BN is a manually specified DAG, not a structure-learning experiment:
 
 ```text
-fraudguard/
-├── fraudguard_training.ipynb           # single source of truth for training
-├── src/fraudguard/service/
-│   └── app.py                   # serves exported LightGBM artifact
-├── frontend/
-│   ├── app.py                  # Streamlit scoring dashboard
-│   └── requirements.txt
-├── artifacts/                   # exported models and metadata
-├── docs/
-│   ├── PRD.md
-│   ├── ARCHITECTURE.md
-│   ├── SETUP.md
-│   ├── EVALUATION.md
-│   └── SECURITY.md
-├── scripts/validate_training.py  # validates the training notebook
-├── tests/test_api.py             # API readiness/authentication tests
-├── Dockerfile
-├── docker-compose.yml
-└── Makefile
+TransactionAmtBin ─┐
+TransactionDTBin  ─┤
+card1Bin          ─┤
+ProductCD         ─┤──> Fraud
+card4             ──┤
+DeviceType        ──┤
+P_emaildomain     ──┤
+addr1Bin          ───┘
+
+ProductCD ───> addr1Bin
 ```
 
-## Quick start
+Gaussian Naive Bayes assumes the selected numeric features are conditionally
+independent given `Fraud`. The BN relaxes that assumption for the explicitly
+represented `ProductCD -> addr1Bin` dependency while retaining direct evidence
+links into `Fraud`. Variable Elimination computes
+`P(Fraud = 1 | observed evidence)`; missing evidence is omitted and therefore
+marginalized by the inference algorithm.
 
-### 1. Train on Kaggle
+## Repository layout
 
-1. Open a Kaggle notebook and attach **IEEE-CIS Fraud Detection**.
-2. Run [`fraudguard_training.ipynb`](fraudguard_training.ipynb) from top to bottom.
-3. Download `fraudguard_artifacts.zip` from `/kaggle/working/`.
-4. Extract the generated files into this repository's `artifacts/` directory.
-
-See [Setup](docs/SETUP.md) for details.
-
-### 2. Run checks
-
-```bash
-python scripts/validate_training.py
-pytest
+```text
+fraudguard_training.ipynb   # canonical, syllabus-first training notebook
+src/fraudguard/service/     # FastAPI service; currently serves LightGBM
+frontend/                   # Streamlit scoring dashboard
+docs/                       # setup, architecture, evaluation and security notes
+model_comparison.csv        # latest metrics copied from the canonical notebook run
+missingness_stress.csv      # stored LightGBM feature-masking experiment
 ```
 
-### 3. Run the API
+## Run the notebook
 
-Copy `.env.example` to `.env`, set a strong API key, and run:
+1. Open Kaggle and attach **IEEE-CIS Fraud Detection** through **Add Input**.
+2. Ensure the notebook environment has the packages in `requirements-notebook.txt`.
+3. Run the notebook from top to bottom.
+4. Download `fraudguard_artifacts.zip` from `/kaggle/working/`.
 
-```bash
-docker compose up --build
-```
+For local execution, place the permitted dataset files in `ieee-fraud-detection/` and install the notebook requirements.
 
-Open the dashboard at <http://localhost:8501>. It connects to the API through
-the internal Compose network and uses the same `FRAUDGUARD_API_KEY`.
+## Latest regenerated evaluation
 
-To run the dashboard without Docker, install `frontend/requirements.txt`, start
-the API on port 8000, and run:
+The following results were regenerated locally from the dataset in
+`ieee-fraud-detection/` on the chronological 80/20 split:
 
-```bash
-streamlit run frontend/app.py
-```
+| Model | PR-AUC | ROC-AUC | Brier | Recall @ 5% FPR | Rows |
+|---|---:|---:|---:|---:|---:|
+| LightGBM benchmark | 0.5595 | 0.9100 | 0.0210 | 0.6580 | 118,108 |
+| Gaussian Naive Bayes | 0.0889 | 0.7343 | 0.6957 | 0.1784 | 118,108 |
+| Bayesian Network | 0.0936 | 0.7405 | 0.0528 | 0.0515 | 3,000 |
+| GMM + EM anomaly score | 0.0338 | 0.4168 | N/A | N/A | 118,108 |
 
-Example request:
+The BN row is a 3,000-row reproducible sample and must not be presented as
+directly comparable to full-validation rows without that qualification.
 
-```bash
-curl -X POST http://localhost:8000/v1/score \
-  -H 'Content-Type: application/json' \
-  -H 'X-API-Key: YOUR_API_KEY' \
-  -d '{"features":{"TransactionAmt":125.5,"ProductCD":"W","TransactionDT":86400}}'
-```
+- PR-AUC is the primary ranking metric because fraud is a minority class.
+- Report ROC-AUC, Brier score and recall at 5% false-positive rate as supporting metrics.
+- The BN result uses a smaller validation sample than LightGBM and GaussianNB; label this every time you show the comparison.
+- The GMM score is an anomaly score, not a calibrated fraud probability.
+- Rerun the notebook whenever the dataset, seed, or preprocessing changes.
 
-The feature dictionary should use the feature names from the IEEE-CIS training schema. Unspecified fields are treated as missing; unknown categorical values map to `__UNKNOWN__`.
+## Current scope and limitations
 
-## Current limitations
+- The BN graph is manually specified to keep assumptions explainable; automatic structure learning is not implemented.
+- The BN is an educational/research model. It is not the deployed scoring API model.
+- LightGBM's validation set is also used for early stopping, so its reported validation result is best treated as a benchmark rather than an untouched final test score.
+- This is a research/coursework prototype, not a production-certified fraud prevention service.
+- Do not redistribute IEEE-CIS dataset files; follow the dataset's access terms.
 
-- The notebook's BN uses a manually specified graph and complete-case CPD fitting; missing evidence is marginalized at inference, but BN EM training is not implemented.
-- GMM+EM is an unsupervised anomaly baseline, not a calibrated fraud probability.
-- The API currently serves LightGBM only; BN/GMM are research comparisons.
-- A notebook run is required before deployment artifacts exist.
-- This is a research/educational prototype, not a production-certified fraud prevention service.
-
-## Documentation
-
-- [Product requirements](docs/PRD.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Setup](docs/SETUP.md)
-- [Evaluation protocol](docs/EVALUATION.md)
-- [Security](docs/SECURITY.md)
-
-## License
-
-MIT for project code. IEEE-CIS dataset access and use are governed by the Kaggle competition's terms; dataset files are not redistributed here.
+See `docs/SETUP.md`, `docs/ARCHITECTURE.md`, `docs/EVALUATION.md`, and `docs/SECURITY.md`.

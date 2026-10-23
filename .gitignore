@@ -9,6 +9,7 @@ dist/
 .env
 artifacts/*
 !artifacts/.gitkeep
+fraudguard_artifacts.zip
 ieee-fraud-detection/*.csv
 *.log
 .ipynb_checkpoints/

@@ -11,10 +11,10 @@ FraudGuard is a coursework-aligned fraud detection research prototype using the 
 1. Load `train_transaction.csv` and left-join `train_identity.csv` on `TransactionID`.
 2. Keep competition test files out of supervised evaluation.
 3. Split chronologically using `TransactionDT`.
-4. Train and compare LightGBM, Gaussian Naive Bayes, a discrete Bayesian Network, and GMM-EM anomaly scoring.
+4. Teach and compare Gaussian Naive Bayes and a manually specified discrete Bayesian Network as the Topic 1 core; retain LightGBM as a secondary benchmark and GMM-EM as an optional extension.
 5. Evaluate PR-AUC, ROC-AUC, Brier score, recall at 5% FPR, and controlled missing-field stress.
 6. Export models, metrics, and metadata from the notebook.
-7. Serve the exported LightGBM model with API-key protection in production.
+7. Serve the exported LightGBM benchmark with API-key protection; BN inference remains notebook/research functionality unless separately integrated and tested.
 
 ## Non-functional requirements
 - Reproducible random seed.

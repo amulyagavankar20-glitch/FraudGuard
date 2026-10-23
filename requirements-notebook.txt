@@ -1,2 +1,5 @@
 # Notebook-only probabilistic model dependency; install in Kaggle if missing.
 pgmpy==0.1.24
+jupyter>=1.0
+nbclient>=0.10
+nbformat>=5.10
