@@ -6,10 +6,10 @@ legacy handcrafted feature pipeline.
 """
 from __future__ import annotations
 
+import csv
 import hmac
 import json
 import os
-import csv
 from pathlib import Path
 from typing import Any
 
